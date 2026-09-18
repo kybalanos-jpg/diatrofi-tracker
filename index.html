@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Παρακολούθηση Διατροφής</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0b1220; --card: #121a2b; --line: #1e2a44; --accent: #3ee0b0; --accent2: #7aa2ff; }
+    * { font-family: 'Outfit', system-ui, sans-serif; }
+    body { background: radial-gradient(1200px 600px at 10% -10%, #16324a 0%, transparent 50%),
+                     radial-gradient(900px 500px at 110% 10%, #1a2d55 0%, transparent 45%),
+                     var(--bg); color: #e8eefc; }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+            border: 1px solid var(--line); backdrop-filter: blur(8px); }
+    input, select { background: #0d1524; border: 1px solid #243352; color: #e8eefc; }
+    input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(62,224,176,.15); }
+    .btn-primary { background: linear-gradient(135deg, #3ee0b0, #2bb89a); color: #062018; }
+    .btn-ghost { border: 1px solid #2a3b5c; }
+    canvas { max-height: 320px; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-7xl mx-auto px-4 py-6 md:py-10">
+    <header class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+      <div>
+        <p class="text-emerald-300/80 text-sm tracking-widest uppercase">Personal Diet Tracker</p>
+        <h1 class="text-3xl md:text-4xl font-semibold">Πορεία Διατροφής</h1>
+        <p class="text-slate-400 mt-1">Καταχώρησε βάρος, θερμίδες και μακροθρεπτικά. Δες την πρόοδο με καμπύλες.</p>
+      </div>
+      <div class="flex gap-2">
+        <button id="exportBtn" class="btn-ghost px-4 py-2 rounded-xl text-sm">Εξαγωγή JSON</button>
+        <button id="importBtn" class="btn-ghost px-4 py-2 rounded-xl text-sm">Εισαγωγή</button>
+        <input type="file" id="importFile" accept="application/json" class="hidden" />
+      </div>
+    </header>
+    <section class="grid lg:grid-cols-3 gap-5 mb-6">
+      <div class="card rounded-2xl p-5 lg:col-span-1">
+        <h2 class="text-lg font-medium mb-4">Στόχοι</h2>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="text-sm text-slate-400">Στόχος βάρους (kg)
+            <input id="goalWeight" type="number" step="0.1" class="mt-1 w-full rounded-lg px-3 py-2" />
+          </label>
+          <label class="text-sm text-slate-400">Ημερήσιες θερμίδες
+            <input id="goalCals" type="number" class="mt-1 w-full rounded-lg px-3 py-2" />
+          </label>
+          <label class="text-sm text-slate-400">Πρωτεΐνη (g)
+            <input id="goalP" type="number" class="mt-1 w-full rounded-lg px-3 py-2" />
+          </label>
+          <label class="text-sm text-slate-400">Υδατάνθρακες (g)
+            <input id="goalC" type="number" class="mt-1 w-full rounded-lg px-3 py-2" />
+          </label>
+          <label class="text-sm text-slate-400">Λίπη (g)
+            <input id="goalF" type="number" class="mt-1 w-full rounded-lg px-3 py-2" />
+          </label>
+        </div>
+        <button id="saveGoals" class="btn-primary mt-4 w-full py-2.5 rounded-xl font-medium">Αποθήκευση στόχων</button>
+      </div>
+      <div class="card rounded-2xl p-5 lg:col-span-2">
+        <h2 class="text-lg font-medium mb-4">Νέα καταχώρηση</h2>
+        <div class="grid sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <label class="text-sm text-slate-400">Ημερομηνία
+            <input id="date" type="date" class="mt-1 w-full rounded-lg px-3 py-2" />
+          </label>
+          <label class="text-sm text-slate-400">Βάρος (kg)
+            <input id="weight" type="number" step="0.1" class="mt-1 w-full rounded-lg px-3 py-2" />
+          </label>
+          <label class="text-sm text-slate-400">Θερμίδες
+            <input id="cals" type="number" class="mt-1 w-full rounded-lg px-3 py-2" />
+          </label>
+          <label class="text-sm text-slate-400">Πρωτεΐνη (g)
+            <input id="prot" type="number" class="mt-1 w-full rounded-lg px-3 py-2" />
+          </label>
+          <label class="text-sm text-slate-400">Υδατ. (g)
+            <input id="carbs" type="number" class="mt-1 w-full rounded-lg px-3 py-2" />
+          </label>
+          <label class="text-sm text-slate-400">Λίπη (g)
+            <input id="fat" type="number" class="mt-1 w-full rounded-lg px-3 py-2" />
+          </label>
+        </div>
+        <label class="text-sm text-slate-400 block mt-3">Σημειώσεις
+          <input id="notes" type="text" placeholder="π.χ. προπόνηση, έξοδο, νηστεία..." class="mt-1 w-full rounded-lg px-3 py-2" />
+        </label>
+        <div class="flex gap-2 mt-4">
+          <button id="addEntry" class="btn-primary px-5 py-2.5 rounded-xl font-medium">Προσθήκη / Ενημέρωση</button>
+          <button id="clearForm" class="btn-ghost px-4 py-2.5 rounded-xl">Καθαρισμός</button>
+        </div>
+      </div>
+    </section>
+    <section class="grid md:grid-cols-4 gap-4 mb-6">
+      <div class="card rounded-2xl p-4">
+        <p class="text-slate-400 text-sm">Τελευταίο βάρος</p>
+        <p id="statWeight" class="text-2xl font-semibold mt-1">—</p>
+        <p id="statWeightDelta" class="text-sm text-slate-400"></p>
+      </div>
+      <div class="card rounded-2xl p-4">
+        <p class="text-slate-400 text-sm">Μέσος όρος θερμίδων (7ημ.)</p>
+        <p id="statCals" class="text-2xl font-semibold mt-1">—</p>
+      </div>
+      <div class="card rounded-2xl p-4">
+        <p class="text-slate-400 text-sm">Μέση πρωτεΐνη (7ημ.)</p>
+        <p id="statProt" class="text-2xl font-semibold mt-1">—</p>
+      </div>
+      <div class="card rounded-2xl p-4">
+        <p class="text-slate-400 text-sm">Καταχωρήσεις</p>
+        <p id="statCount" class="text-2xl font-semibold mt-1">0</p>
+      </div>
+    </section>
+    <section class="grid lg:grid-cols-2 gap-5 mb-6">
+      <div class="card rounded-2xl p-5">
+        <h3 class="mb-3 font-medium">Καμπύλη βάρους</h3>
+        <canvas id="chartWeight"></canvas>
+      </div>
+      <div class="card rounded-2xl p-5">
+        <h3 class="mb-3 font-medium">Θερμίδες ανά ημέρα</h3>
+        <canvas id="chartCals"></canvas>
+      </div>
+      <div class="card rounded-2xl p-5">
+        <h3 class="mb-3 font-medium">Μακροθρεπτικά (g)</h3>
+        <canvas id="chartMacros"></canvas>
+      </div>
+      <div class="card rounded-2xl p-5">
+        <h3 class="mb-3 font-medium">Κατανομή μακροθρεπτικών (τελευταία ημέρα)</h3>
+        <canvas id="chartPie"></canvas>
+      </div>
+    </section>
+    <section class="card rounded-2xl p-5 overflow-x-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-medium">Ιστορικό</h3>
+        <button id="wipeBtn" class="text-rose-300 text-sm hover:underline">Διαγραφή όλων</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="text-slate-400 border-b border-slate-700">
+          <tr>
+            <th class="text-left py-2 pr-3">Ημ/νία</th>
+            <th class="text-left py-2 pr-3">Βάρος</th>
+            <th class="text-left py-2 pr-3">kcal</th>
+            <th class="text-left py-2 pr-3">P</th>
+            <th class="text-left py-2 pr-3">C</th>
+            <th class="text-left py-2 pr-3">F</th>
+            <th class="text-left py-2 pr-3">Σημειώσεις</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </section>
+  </div>
+<script>
+const KEY = "diatrofi_v1";
+const defaultGoals = { weight: 75, cals: 2200, p: 160, c: 220, f: 70 };
+let data = { goals: {...defaultGoals}, entries: [] };
+let charts = {};
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) data = JSON.parse(raw);
+  } catch(e) {}
+  if (!data.entries) data.entries = [];
+  if (!data.goals) data.goals = {...defaultGoals};
+}
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
+function fillGoals() {
+  goalWeight.value = data.goals.weight ?? "";
+  goalCals.value = data.goals.cals ?? "";
+  goalP.value = data.goals.p ?? "";
+  goalC.value = data.goals.c ?? "";
+  goalF.value = data.goals.f ?? "";
+}
+function sorted() {
+  return [...data.entries].sort((a,b) => a.date.localeCompare(b.date));
+}
+function avg(arr) {
+  if (!arr.length) return null;
+  return arr.reduce((s,x)=>s+x,0) / arr.length;
+}
+function renderStats() {
+  const s = sorted();
+  statCount.textContent = s.length;
+  if (!s.length) {
+    statWeight.textContent = "—";
+    statWeightDelta.textContent = "";
+    statCals.textContent = "—";
+    statProt.textContent = "—";
+    return;
+  }
+  const last = s[s.length-1];
+  statWeight.textContent = last.weight ? last.weight + " kg" : "—";
+  if (s.length >= 2 && s[0].weight && last.weight) {
+    const d = +(last.weight - s[0].weight).toFixed(1);
+    const sign = d > 0 ? "+" : "";
+    statWeightDelta.textContent = `Από την αρχή: ${sign}${d} kg`;
+  } else statWeightDelta.textContent = "";
+  const last7 = s.slice(-7);
+  const c = avg(last7.map(x=>x.cals).filter(v=>v!=null));
+  const p = avg(last7.map(x=>x.prot).filter(v=>v!=null));
+  statCals.textContent = c != null ? Math.round(c) : "—";
+  statProt.textContent = p != null ? Math.round(p) + " g" : "—";
+}
+function renderTable() {
+  const s = sorted().reverse();
+  tbody.innerHTML = s.map(e => `
+    <tr class="border-b border-slate-800/80 hover:bg-white/5">
+      <td class="py-2 pr-3">${e.date}</td>
+      <td class="py-2 pr-3">${e.weight ?? "—"}</td>
+      <td class="py-2 pr-3">${e.cals ?? "—"}</td>
+      <td class="py-2 pr-3">${e.prot ?? "—"}</td>
+      <td class="py-2 pr-3">${e.carbs ?? "—"}</td>
+      <td class="py-2 pr-3">${e.fat ?? "—"}</td>
+      <td class="py-2 pr-3 text-slate-400">${e.notes || ""}</td>
+      <td class="py-2 text-right">
+        <button data-del="${e.date}" class="text-rose-300 text-xs">Διαγραφή</button>
+      </td>
+    </tr>`).join("");
+  tbody.querySelectorAll("[data-del]").forEach(btn => {
+    btn.onclick = () => {
+      data.entries = data.entries.filter(x => x.date !== btn.dataset.del);
+      save(); refresh();
+    };
+  });
+}
+function lineOpts(yTitle) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: "#c9d4ee" } } },
+    scales: {
+      x: { ticks: { color: "#8ea0c4" }, grid: { color: "rgba(255,255,255,0.04)" } },
+      y: { title: { display: !!yTitle, text: yTitle, color: "#8ea0c4" }, ticks: { color: "#8ea0c4" }, grid: { color: "rgba(255,255,255,0.06)" } }
+    }
+  };
+}
+function renderCharts() {
+  const s = sorted();
+  const labels = s.map(e => e.date.slice(5));
+  const weights = s.map(e => e.weight);
+  const cals = s.map(e => e.cals);
+  const prot = s.map(e => e.prot);
+  const carbs = s.map(e => e.carbs);
+  const fat = s.map(e => e.fat);
+  const goalW = Array(s.length).fill(data.goals.weight);
+  const goalCal = Array(s.length).fill(data.goals.cals);
+  const mk = (id, cfg) => {
+    if (charts[id]) charts[id].destroy();
+    const ctx = document.getElementById(id);
+    charts[id] = new Chart(ctx, cfg);
+  };
+  mk("chartWeight", {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "Βάρος", data: weights, borderColor: "#3ee0b0", backgroundColor: "rgba(62,224,176,.15)", tension: .35, fill: true, spanGaps: true },
+        { label: "Στόχος", data: goalW, borderColor: "#7aa2ff", borderDash: [6,4], pointRadius: 0, tension: 0 }
+      ]
+    },
+    options: lineOpts("kg")
+  });
+  mk("chartCals", {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        { label: "Θερμίδες", data: cals, backgroundColor: "rgba(122,162,255,.55)", borderRadius: 6 },
+        { type: "line", label: "Στόχος", data: goalCal, borderColor: "#ffb86b", pointRadius: 0, tension: 0 }
+      ]
+    },
+    options: lineOpts("kcal")
+  });
+  mk("chartMacros", {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "Πρωτεΐνη", data: prot, borderColor: "#ff6b8a", tension: .3, spanGaps: true },
+        { label: "Υδατάνθρακες", data: carbs, borderColor: "#7aa2ff", tension: .3, spanGaps: true },
+        { label: "Λίπη", data: fat, borderColor: "#ffd166", tension: .3, spanGaps: true }
+      ]
+    },
+    options: lineOpts("g")
+  });
+  const last = s[s.length-1];
+  const pieData = last ? [last.prot||0, last.carbs||0, last.fat||0] : [0,0,0];
+  mk("chartPie", {
+    type: "doughnut",
+    data: {
+      labels: ["Πρωτεΐνη", "Υδατάνθρακες", "Λίπη"],
+      datasets: [{ data: pieData, backgroundColor: ["#ff6b8a","#7aa2ff","#ffd166"], borderWidth: 0 }]
+    },
+    options: { plugins: { legend: { labels: { color: "#c9d4ee" } } } }
+  });
+}
+function refresh() {
+  fillGoals();
+  renderStats();
+  renderTable();
+  renderCharts();
+}
+function num(id) {
+  const v = document.getElementById(id).value;
+  return v === "" ? null : Number(v);
+}
+addEntry.onclick = () => {
+  const date = document.getElementById("date").value;
+  if (!date) { alert("Βάλε ημερομηνία"); return; }
+  const entry = {
+    date,
+    weight: num("weight"),
+    cals: num("cals"),
+    prot: num("prot"),
+    carbs: num("carbs"),
+    fat: num("fat"),
+    notes: notes.value.trim()
+  };
+  const i = data.entries.findIndex(e => e.date === date);
+  if (i >= 0) data.entries[i] = entry;
+  else data.entries.push(entry);
+  save(); refresh();
+};
+clearForm.onclick = () => {
+  ["weight","cals","prot","carbs","fat","notes"].forEach(id => document.getElementById(id).value = "");
+};
+saveGoals.onclick = () => {
+  data.goals = {
+    weight: num("goalWeight"),
+    cals: num("goalCals"),
+    p: num("goalP"),
+    c: num("goalC"),
+    f: num("goalF")
+  };
+  save(); refresh();
+};
+wipeBtn.onclick = () => {
+  if (confirm("Να διαγραφούν όλες οι καταχωρήσεις;")) {
+    data.entries = [];
+    save(); refresh();
+  }
+};
+exportBtn.onclick = () => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "diatrofi-backup.json";
+  a.click();
+};
+importBtn.onclick = () => importFile.click();
+importFile.onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      data = JSON.parse(reader.result);
+      if (!data.entries) data.entries = [];
+      save(); refresh();
+    } catch { alert("Άκυρο αρχείο"); }
+  };
+  reader.readAsText(file);
+};
+document.getElementById("date").value = new Date().toISOString().slice(0,10);
+load();
+refresh();
+</script>
+</body>
+</html>
